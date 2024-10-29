@@ -1,19 +1,38 @@
-use crate::traits::{Parsing, State};
-use log::{info, trace};
+//! Module for configuration, fstab, etc... 
+use crate::traits::{Mounting, State};
+use log::{error, info};
+use rustix::mount::MountFlags; // if this is highlighted, it's a bug in RustRover
 use serde::{Deserialize, Serialize};
-use std::env::temp_dir;
-use std::fs::read_dir;
-use std::path::Path;
-#[derive(Serialize, Deserialize, Default)]
-pub struct FsTab(Vec<BetterFsTab>);
-#[derive(Serialize, Deserialize)]
-struct BetterFsTab {
-    source: String,
-    target: String,
-    fstype: String,
-    flags: Vec<String>,
-    data: String,
+use std::{
+    env::temp_dir,
+    fs::read_dir,
+    io,
+    path::Path,
+    process::Command,
+};
+
+macro_rules! script {
+    ($script:expr) => {
+        for script in &$script {
+            info!("Starting script {}", script.name);
+            let cmd = Command::new(script.path.clone())
+                .args(&script.args)
+                .output();
+            res!(cmd);
+        }
+    };
 }
+#[macro_export]
+macro_rules! res {
+    ($v:expr) => {
+        use log::{error, info};
+        match $v {
+            Ok(ok) => info!("{ok:#?}"),
+            Err(e) => error!("{e:#?}"),
+        }
+    };
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 enum When {
     OnReboot,
@@ -47,73 +66,51 @@ impl Cfg {
             }],
         }
     }
+    pub fn load(&mut self, f: &str) -> Self {
+        let file = std::fs::read_to_string(f).unwrap();
+        let cfg: Self = serde_yaml::from_str(&file).unwrap();
+        Self {
+            imports: cfg.imports,
+            name: cfg.name,
+            when: cfg.when,
+            script: cfg.script,
+        }
+    }
 }
-
+/// FSTab implementation
 impl State for Cfg {
     fn reboot(&mut self) {
         match self.when {
             When::OnReboot => {
-                std::process::exit(0);
+                script!(self.script);
+                std::process::exit(0)
             }
             When::OnShutdown => {
+                script!(self.script);
                 std::process::exit(0);
             }
             When::OnHibernate => {
                 std::thread::sleep(std::time::Duration::MAX);
                 std::fs::write(Path::new(temp_dir().as_path()), "sleep").unwrap();
-                todo!()
+                script!(self.script);
             }
             When::Immediately => {
-                for cmd in &self.script {
-                    info!("Spawning {:?}", cmd);
-                    let mut c = std::process::Command::new(&cmd.path)
-                        .args(&cmd.args)
-                        .spawn()
-                        .unwrap();
-                    while c.wait().unwrap().success() {
-                        std::fs::write(
-                            "/tmp/init.log",
-                            trace!("{:#?}", Ok(c.stdout.take())),
-                        )
-                        .unwrap()
-                    }
-                }
+                script!(self.script);
             }
         }
     }
 }
-
-impl Parsing for Cfg {
-    fn parse(self, f: &str) {
-        todo!()
-    }
-}
-
 impl crate::traits::InitSystem for Cfg {
-    fn init(self, d: &str) -> std::io::Result<()> {
+    fn init(self, d: &str) -> io::Result<()> {
         for ent in read_dir(d)? {
             let entry = ent?;
             let f = std::fs::read_to_string(entry.path())?;
             let cfg: Self = serde_yaml::from_str(&f).unwrap();
-        }
-        Ok(())
-    }
-}
-impl Into<MountFlags> for FsTab {
-    fn into(self) -> MountFlags {
-        for i in self.0.iter() {
-            for flags in &i.flags {
-                flags.parse();
+            info!("Starting service {}", cfg.name);
+            for script in cfg.script {
+                Command::new(&script.path).args(&script.args).spawn()?;
             }
         }
-    }
-}
-impl Parsing for FsTab {
-    fn parse(self, f: &str) {
-        let file = std::fs::read_to_string(f).unwrap();
-        let cfg: FsTab = serde_yaml::from_str(&file).unwrap();
-        for dev in cfg.0.into_iter() {
-            rustix::mount::mount();
-        }
+        Ok(())
     }
 }
