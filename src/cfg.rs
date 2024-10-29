@@ -1,15 +1,9 @@
-//! Module for configuration, fstab, etc... 
-use crate::traits::{Mounting, State};
+//! Module for configuration, fstab, etc...
+use crate::traits::State;
 use log::{error, info};
 use rustix::mount::MountFlags; // if this is highlighted, it's a bug in RustRover
 use serde::{Deserialize, Serialize};
-use std::{
-    env::temp_dir,
-    fs::read_dir,
-    io,
-    path::Path,
-    process::Command,
-};
+use std::{env::temp_dir, fs::read_dir, io, path::Path, process::Command};
 
 macro_rules! script {
     ($script:expr) => {
@@ -25,7 +19,6 @@ macro_rules! script {
 #[macro_export]
 macro_rules! res {
     ($v:expr) => {
-        use log::{error, info};
         match $v {
             Ok(ok) => info!("{ok:#?}"),
             Err(e) => error!("{e:#?}"),

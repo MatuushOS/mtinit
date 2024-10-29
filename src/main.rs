@@ -1,16 +1,12 @@
+#![warn(clippy::all, clippy::pedantic, clippy::perf)]
 mod cfg;
-mod traits;
 mod fstab;
+mod traits;
 
-use crate::{
-    cfg::{Cfg, res},
-    traits::Mounting,
-    fstab::FsTab
-};
+use crate::{cfg::Cfg, fstab::FsTab, traits::Mounting};
 use clap::Parser;
-use log::info;
+use log::{error, info};
 use std::path::Path;
-
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -40,7 +36,7 @@ fn main() -> std::io::Result<()> {
     if let Some(location) = a.generate {
         info!("Generating init file at {}", location);
         let cfg = serde_yaml::to_string::<Cfg>(&Cfg::new());
-        std::fs::write(location, res!(cfg))?
+        res!(std::fs::write(location, cfg.unwrap()))
     } else if let Some(reload_fstab) = a.reload_fstab {
         match reload_fstab {
             true => {
