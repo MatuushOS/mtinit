@@ -3,10 +3,29 @@ name = "mtinit"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[workspace.dependencies]
 log = "0.4.22"
 colog = "1.3.0"
 serde = {version = "1.0.213", default-features = false, features = ["derive"]}
 serde_yaml = "0.9.34+deprecated"
 clap = {version = "4.5.20", features = ["derive"]}
-rustix = { version = "0.38.38", features = ["mount"] }
+rustix = { version = "0.38.38", features = ["mount", "system"] }
+init_system = {version = "*", path = "init_system"}
+[workspace]
+members = ["power_opts", "init_system"]
+
+[dependencies]
+log.workspace = true
+colog.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+clap.workspace = true
+rustix.workspace = true
+init_system.workspace = true
+[[bin]]
+name = "popt"
+path = "power_opts/src/main.rs"
+
+[[bin]]
+name = "init"
+path = "init_system/src/main.rs"

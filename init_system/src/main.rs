@@ -7,6 +7,8 @@ use crate::{cfg::Cfg, fstab::FsTab, traits::Mounting};
 use clap::Parser;
 use log::{error, info};
 use std::path::Path;
+use crate::traits::{InitSystem, State};
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -28,10 +30,15 @@ fn main() -> std::io::Result<()> {
             "/mtos/fstab.yml",
             serde_yaml::to_string(&FsTab::default()).unwrap(),
         )?;
+    } else {
+        FsTab::new("/mtos/fstab.yml").mount();
+        let mut cfg = Cfg::new();
+        cfg.clone().init("/mtos/init")?;
+        cfg.state();
     }
     let a = Cli::parse();
     if a.location.is_none() {
-        Cfg::new().load("/mtos/init");
+        Cfg::new().init("/mtos/init")?;
     }
     if let Some(location) = a.generate {
         info!("Generating init file at {}", location);

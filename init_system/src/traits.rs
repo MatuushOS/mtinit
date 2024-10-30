@@ -1,12 +1,12 @@
 use std::io;
 
 pub trait Mounting {
-    fn mount(self, f: &str);
+    fn mount(self);
     fn remount(self) -> io::Result<()>;
 }
 pub trait State {
-    fn reboot(&mut self);
+    fn state(&mut self);
 }
 pub trait InitSystem: State {
-    fn init(self, d: &str) -> io::Result<()>;
+    fn init(self, d: &str) -> io::Result<Self> where Self: Sized;
 }

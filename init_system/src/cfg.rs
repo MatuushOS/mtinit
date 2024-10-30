@@ -1,7 +1,6 @@
 //! Module for configuration, fstab, etc...
 use crate::traits::State;
 use log::{error, info};
-use rustix::mount::MountFlags; // if this is highlighted, it's a bug in RustRover
 use serde::{Deserialize, Serialize};
 use std::{env::temp_dir, fs::read_dir, io, path::Path, process::Command};
 
@@ -26,20 +25,20 @@ macro_rules! res {
     };
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum When {
     OnReboot,
     OnShutdown,
     OnHibernate,
     Immediately,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Script {
     name: String,
     path: String,
     args: Vec<String>,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cfg {
     imports: Option<Vec<String>>,
     name: String,
@@ -59,20 +58,10 @@ impl Cfg {
             }],
         }
     }
-    pub fn load(&mut self, f: &str) -> Self {
-        let file = std::fs::read_to_string(f).unwrap();
-        let cfg: Self = serde_yaml::from_str(&file).unwrap();
-        Self {
-            imports: cfg.imports,
-            name: cfg.name,
-            when: cfg.when,
-            script: cfg.script,
-        }
-    }
 }
 /// FSTab implementation
 impl State for Cfg {
-    fn reboot(&mut self) {
+    fn state(&mut self) {
         match self.when {
             When::OnReboot => {
                 script!(self.script);
@@ -94,16 +83,22 @@ impl State for Cfg {
     }
 }
 impl crate::traits::InitSystem for Cfg {
-    fn init(self, d: &str) -> io::Result<()> {
+    fn init(self, d: &str) -> io::Result<Self> {
         for ent in read_dir(d)? {
             let entry = ent?;
             let f = std::fs::read_to_string(entry.path())?;
             let cfg: Self = serde_yaml::from_str(&f).unwrap();
             info!("Starting service {}", cfg.name);
-            for script in cfg.script {
+            for script in cfg.clone().script {
                 Command::new(&script.path).args(&script.args).spawn()?;
             }
+            return Ok(Self {
+                name: cfg.name,
+                imports: cfg.imports,
+                when: cfg.when,
+                script: cfg.script,
+            })
         }
-        Ok(())
+        Ok(self)
     }
 }
