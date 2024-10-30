@@ -38,4 +38,14 @@ impl FsTab {
         let cfg: Self = serde_yaml::from_str(&fst).unwrap();
         Self(cfg.0)
     }
+    pub(crate) fn generate() -> Self {
+        Self {
+            0: vec![BetterFsTab {
+                source: "".to_string(),
+                target: "".to_string(),
+                fstype: "".to_string(),
+                data: "".to_string(),
+            }],
+        }
+    }
 }

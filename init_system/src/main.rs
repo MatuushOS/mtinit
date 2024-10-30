@@ -28,7 +28,7 @@ fn main() -> std::io::Result<()> {
         std::fs::File::create("/mtos/fstab.yml")?;
         std::fs::write(
             "/mtos/fstab.yml",
-            serde_yaml::to_string(&FsTab::default()).unwrap(),
+            serde_yaml::to_string(&FsTab::generate()).unwrap(),
         )?;
     } else {
         FsTab::new("/mtos/fstab.yml").mount();
